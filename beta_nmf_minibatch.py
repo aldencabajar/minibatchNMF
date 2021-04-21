@@ -15,10 +15,10 @@ beta\_nmf_minibatch.py
 import time
 import numpy as np
 import theano
-import base
+from .base import *
 import theano.tensor as T
-import updates
-import costs
+from .updates import *
+from .costs import *
 
 
 class BetaNMF(object):
@@ -150,6 +150,7 @@ class BetaNMF(object):
         else:
             self.cache1_size = data_shape[0]
             self.nb_cache1 = 1
+        self.cache1_size = 20
 
         self.n_components = np.asarray(n_components, dtype='int32')
         self.beta = theano.shared(np.asarray(beta, theano.config.floatX),
@@ -166,7 +167,7 @@ class BetaNMF(object):
         if fixed_factors is None:
             fixed_factors = []
         self.fixed_factors = fixed_factors
-        fact_ = [base.nnrandn((dim, self.n_components)) for dim in data_shape]
+        fact_ = [nnrandn((dim, self.n_components)) for dim in data_shape]
         self.init_mode = init_mode
         if self.init_mode == 'custom':
             fact_[0] = H
@@ -190,19 +191,19 @@ class BetaNMF(object):
         batch_shape = self.x_cache1.get_value().shape
         dim = long(self.n_components)
         if self.w.get_value().shape != (self.data_shape[1], dim):
-            print "Inconsistent data for W, expected {1}, found {0}".format(
+            print("Inconsistent data for W, expected {1}, found {0}".format(
                 self.w.get_value().shape,
-                (self.data_shape[1], dim))
+                (self.data_shape[1], dim)))
             raise SystemExit
         if self.factors_[0].shape != (self.data_shape[0], dim):
-            print "Inconsistent shape for H, expected {1}, found {0}".format(
+            print("Inconsistent shape for H, expected {1}, found {0}".format(
                 self.factors_[0].shape,
-                (self.data_shape[0], dim))
+                (self.data_shape[0], dim)))
             raise SystemExit
         if self.h_cache1.get_value().shape != (batch_shape[0], dim):
-            print "Inconsistent shape for h_cache1, expected {1}, found {0}".format(
+            print("Inconsistent shape for h_cache1, expected {1}, found {0}".format(
                 self.h_cache1.get_value().shape,
-                (batch_shape[0], dim))
+                (batch_shape[0], dim)))
             raise SystemExit
 
     def fit(self, data, cyclic=False, warm_start=False):
@@ -221,7 +222,7 @@ class BetaNMF(object):
         """
         self.data_shape = data.shape
         if (not warm_start) & (self.init_mode is not 'custom'):
-            print "cold start"
+            print("cold start")
             self.set_factors(data, fixed_factors=self.fixed_factors)
         self.check_shape()
         self.prepare_batch(False)
@@ -260,8 +261,8 @@ class BetaNMF(object):
         self.prepare_batch(not cyclic)
         self.prepare_cache1(not cyclic)
 
-        print 'Intitial score = %.2f' % score
-        print 'Fitting NMF model with %d iterations....' % self.n_iter
+        print('Intitial score = %.2f' % score)
+        print('Fitting NMF model with %d iterations....' % self.n_iter)
         if self.nb_cache1 == 1:
             current_cache_ind = np.hstack(self.batch_ind[
                 self.cache1_ind[
@@ -351,7 +352,7 @@ class BetaNMF(object):
                 score_ind += 1
                 scores[score_ind, ] = [
                     score, time.time() - tick + scores[score_ind - 1, 1]]
-                print ('Iteration %d / %d, duration=%.1fms, cost=%f'
+                print('Iteration %d / %d, duration=%.1fms, cost=%f'
                        % (it + 1,
                           self.n_iter,
                           scores[score_ind, 1] * 1000,
@@ -599,7 +600,7 @@ class BetaNMF(object):
             self.nb_cache1 = 1
 
         self.forget_factor = 1./(self.sag_memory + 1)
-        fact_ = [base.nnrandn((dim, self.n_components))
+        fact_ = [nnrandn((dim, self.n_components))
                  for dim in self.data_shape]
         if H is not None:
             fact_[0] = H
@@ -641,7 +642,7 @@ class BetaNMF(object):
         """
         self.fixed_factors = [1]
         if not warm_start:
-            print "cold start"
+            print("cold start")
             self.set_factors(data, fixed_factors=self.fixed_factors)
         self.fit(data, warm_start=True)
         return self.factors_[0]
