@@ -144,7 +144,7 @@ class BetaNMF(object):
             if cache1_size < self.batch_size:
                 raise ValueError('cache1_size should be at '
                                  'least equal to batch_size')
-            self.cache1_size = cache1_size/self.batch_size * self.batch_size
+            self.cache1_size = int(cache1_size/self.batch_size * self.batch_size)
             self.nb_cache1 = int(np.ceil(np.true_divide(self.data_shape[0],
                                                         self.cache1_size)))
         else:
@@ -189,7 +189,7 @@ class BetaNMF(object):
         """Check that all the matrix have consistent shapes
         """
         batch_shape = self.x_cache1.get_value().shape
-        dim = long(self.n_components)
+        dim = float(self.n_components)
         if self.w.get_value().shape != (self.data_shape[1], dim):
             print("Inconsistent data for W, expected {1}, found {0}".format(
                 self.w.get_value().shape,
@@ -233,10 +233,10 @@ class BetaNMF(object):
                 int(np.floor(self.n_iter/self.verbose)) + 2, 2))
         else:
             scores = np.zeros((2, 2))
-        if self.solver is 'asag_mu' or self.solver is 'gsag_mu':
+        if (self.solver == 'asag_mu') or (self.solver == 'gsag_mu'):
             grad_func = self.get_gradient_mu_sag()
             update_func = self.get_updates()
-        elif self.solver is 'asg_mu' or self.solver is 'gsg_mu':
+        elif (self.solver == 'asg_mu') or (self.solver == 'gsg_mu'):
             grad_func = self.get_gradient_mu_sg()
             update_func = self.get_updates()
         elif self.solver is 'mu_batch':
@@ -310,13 +310,13 @@ class BetaNMF(object):
                                             batch_ind[-1] + 1]).astype(
                         theano.config.floatX)
 
-                    if self.solver is 'mu_batch':
+                    if self.solver == 'mu_batch':
                         self.update_mu_batch_h(batch_ind,
                                                update_func, grad_func)
-                    if self.solver is 'asag_mu' or self.solver is 'asg_mu':
+                    if (self.solver == 'asag_mu') or (self.solver == 'asg_mu'):
                         self.update_mu_sag(batch_ind,
                                            update_func, grad_func)
-                    if self.solver is 'gsag_mu' or self.solver is 'gsg_mu':
+                    if (self.solver == 'gsag_mu') or (self.solver == 'gsg_mu'):
                         grad_func['grad_h'](batch_ind)
                         update_func['train_h'](batch_ind)
                         if batch_i == 0 and cache_ind == 0:
@@ -326,9 +326,9 @@ class BetaNMF(object):
                         self.h_cache1.get_value()
                 else:
                     self.factors_[0] = self.h_cache1.get_value()
-            if self.solver is 'mu_batch':
+            if self.solver == 'mu_batch':
                 self.update_mu_batch_w(update_func)
-            elif self.solver is 'gsag_mu' or self.solver is 'gsg_mu':
+            elif (self.solver == 'gsag_mu') or (self.solver == 'gsg_mu'):
                 update_func['train_w']()
             if self.nb_cache1 > 1:
                 for cache_ind in range(self.nb_cache1):
@@ -342,13 +342,13 @@ class BetaNMF(object):
                             self.cache1_ind[
                                 cache_ind, self.cache1_ind[cache_ind] >= 0]]),
                         ].astype(theano.config.floatX))
-                    if (it+1) % self.verbose == 0:
+                    if (it+1) & (self.verbose > 0):
                         score += div_func['div_cache1']()
             else:
                 self.factors_[0] = self.h_cache1.get_value()
-                if (it+1) % self.verbose == 0:
+                if (it+1) & (self.verbose > 0):
                     score = div_func['div_cache1']()
-            if (it+1) % self.verbose == 0:
+            if (it+1) & (self.verbose > 0):
                 score_ind += 1
                 scores[score_ind, ] = [
                     score, time.time() - tick + scores[score_ind - 1, 1]]
@@ -371,7 +371,7 @@ class BetaNMF(object):
     def get_div_function(self):
         """ compile the theano-based divergence function"""
         div_cache1 = theano.function(inputs=[],
-                                     outputs=costs.beta_div(self.x_cache1,
+                                     outputs= beta_div(self.x_cache1,
                                                             self.w.T,
                                                             self.h_cache1,
                                                             self.beta),
@@ -384,7 +384,7 @@ class BetaNMF(object):
         """compile the theano based gradient functions for mu_sag algorithms"""
         tbatch_ind = T.ivector('batch_ind')
         tind = T.iscalar('ind')
-        grad_new = updates.gradient_w_mu(
+        grad_new = gradient_w_mu(
                                     self.x_cache1[tbatch_ind[0]:tbatch_ind[1],
                                                   ],
                                     self.w,
@@ -399,7 +399,7 @@ class BetaNMF(object):
                                  updates={(self.grad_w, up_grad_w)},
                                  name="grad w",
                                  allow_input_downcast=True)
-        grad_new = updates.gradient_h_mu(
+        grad_new = gradient_h_mu(
                                     self.x_cache1[tbatch_ind[0]:tbatch_ind[1],
                                                   ],
                                     self.w,
@@ -420,7 +420,7 @@ class BetaNMF(object):
         """compile the theano based gradient functions for mu_sg algorithms"""
         tbatch_ind = T.ivector('batch_ind')
         tind = T.iscalar('ind')
-        grad_new = updates.gradient_w_mu(
+        grad_new = gradient_w_mu(
                                     self.x_cache1[tbatch_ind[0]:tbatch_ind[1],
                                                   ],
                                     self.w,
@@ -433,7 +433,7 @@ class BetaNMF(object):
                                  updates={(self.grad_w, grad_new)},
                                  name="grad w",
                                  allow_input_downcast=True)
-        grad_new = updates.gradient_h_mu(
+        grad_new = gradient_h_mu(
                                     self.x_cache1[tbatch_ind[0]:tbatch_ind[1],
                                                   ],
                                     self.w,
@@ -454,7 +454,7 @@ class BetaNMF(object):
         """compile the theano based gradient functions for mu"""
         tbatch_ind = T.ivector('batch_ind')
         tind = T.iscalar('ind')
-        grad_new = updates.gradient_w_mu(
+        grad_new = gradient_w_mu(
                                     self.x_cache1[tbatch_ind[0]:tbatch_ind[1],
                                                   ],
                                     self.w,
@@ -469,7 +469,7 @@ class BetaNMF(object):
                                  name="grad w",
                                  allow_input_downcast=True,
                                  on_unused_input='ignore')
-        grad_new = updates.gradient_h_mu(
+        grad_new = gradient_h_mu(
                                     self.x_cache1[tbatch_ind[0]:tbatch_ind[1],
                                                   ],
                                     self.w,
@@ -491,7 +491,7 @@ class BetaNMF(object):
         tneg = T.iscalar('neg')
         tpos = T.iscalar('pos')
         up_h = T.set_subtensor(self.h_cache1[tbatch_ind[0]:tbatch_ind[1], ],
-                               updates.mu_update(self.h_cache1[
+                               mu_update(self.h_cache1[
                                     tbatch_ind[0]:tbatch_ind[1], ],
                                     self.c1_grad_h[0, ],
                                     self.c1_grad_h[1, ],
@@ -502,7 +502,7 @@ class BetaNMF(object):
                                   name="trainH",
                                   allow_input_downcast=True,
                                   on_unused_input='ignore')
-        update_w = updates.mu_update(self.w,
+        update_w = mu_update(self.w,
                                      self.grad_w[0],
                                      self.grad_w[1],
                                      self.eps)
@@ -552,7 +552,7 @@ class BetaNMF(object):
         Parameters
         ----------
         randomize : boolean (default True)
-            Randomise the data (time-wise) before preparing cahce indexes
+            Randomise the data (time-wise) before preparing cache indexes
         """
         ind = - np.ones((self.nb_cache1 *
                          int(np.ceil(np.true_divide(self.cache1_size,
@@ -592,7 +592,7 @@ class BetaNMF(object):
             if self.cache1_size < self.batch_size:
                 raise ValueError('cache1_size should be at '
                                  'least equal to batch_size')
-            self.cache1_size = self.cache1_size/self.batch_size * self.batch_size
+            self.cache1_size = int(self.cache1_size/self.batch_size * self.batch_size)
             self.nb_cache1 = int(np.ceil(np.true_divide(self.data_shape[0],
                                                         self.cache1_size)))
         else:
